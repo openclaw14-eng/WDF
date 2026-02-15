@@ -28,7 +28,8 @@ function getPriceDisplay(price) {
 }
 
 export default function VendorCard({ vendor }) {
-  const imageUrl = vendor.images?.[0] || getFallbackImage(vendor.category);
+  // Handle both image_url (single) and images (array) from Supabase
+  const imageUrl = vendor.images?.[0] || vendor.image_url || getFallbackImage(vendor.category);
   const priceDisplay = getPriceDisplay(vendor.price);
 
   return (

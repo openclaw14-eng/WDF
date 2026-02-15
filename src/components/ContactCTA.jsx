@@ -1,13 +1,18 @@
 import { useState } from 'react';
-import { Send, Heart, Calendar, User, Mail, MessageSquare } from 'lucide-react';
+import { Send, Heart, Calendar, User, Mail, MessageSquare, CheckCircle, Loader2 } from 'lucide-react';
+import { submitContactRequest } from '../lib/supabase';
 
-export default function ContactCTA({ vendorName, vendorEmail }) {
+export default function ContactCTA({ vendorId, vendorName, vendorEmail }) {
   const [isSaved, setIsSaved] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    date: '',
+    phone: '',
+    wedding_date: '',
+    guest_count: '',
     message: '',
   });
 
@@ -15,15 +20,45 @@ export default function ContactCTA({ vendorName, vendorEmail }) {
     setIsSaved(!isSaved);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Aanvraag verzonden! De vendor zal contact met je opnemen.');
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) return;
+    
+    setSubmitting(true);
+    try {
+      await submitContactRequest({
+        vendor_id: vendorId,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        wedding_date: formData.wedding_date || null,
+        guest_count: formData.guest_count ? parseInt(formData.guest_count) : null,
+        message: formData.message
+      });
+      setSubmitted(true);
+      setFormData({ name: '', email: '', phone: '', wedding_date: '', guest_count: '', message: '' });
+    } catch (err) {
+      console.error('Error submitting contact request:', err);
+      alert('Er is een fout opgetreden. Probeer het later opnieuw.');
+    }
+    setSubmitting(false);
   };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
+  if (submitted) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+        <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+        <h4 className="text-lg font-semibold text-green-800 mb-1">Aanvraag verzonden!</h4>
+        <p className="text-green-700 text-sm">
+          {vendorName} ontvangt je aanvraag en neemt zo snel mogelijk contact met je op.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -54,7 +89,7 @@ export default function ContactCTA({ vendorName, vendorEmail }) {
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Naam
+              Naam *
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -73,7 +108,7 @@ export default function ContactCTA({ vendorName, vendorEmail }) {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Email
+              Email *
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -91,25 +126,57 @@ export default function ContactCTA({ vendorName, vendorEmail }) {
           </div>
 
           <div>
-            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Trouwdatum
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1.5">
+              Telefoon (optioneel)
             </label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              placeholder="06-12345678"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="wedding_date" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Trouwdatum
+              </label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="date"
+                  id="wedding_date"
+                  name="wedding_date"
+                  value={formData.wedding_date}
+                  onChange={handleChange}
+                  className="w-full h-12 pl-11 pr-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent text-sm"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="guest_count" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Aantal gasten
+              </label>
               <input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
+                type="number"
+                id="guest_count"
+                name="guest_count"
+                value={formData.guest_count}
                 onChange={handleChange}
-                className="w-full h-12 pl-11 pr-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                min="1"
+                className="w-full h-12 px-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                placeholder="80"
               />
             </div>
           </div>
 
           <div>
             <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Bericht
+              Bericht *
             </label>
             <div className="relative">
               <MessageSquare className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
@@ -119,6 +186,7 @@ export default function ContactCTA({ vendorName, vendorEmail }) {
                 value={formData.message}
                 onChange={handleChange}
                 rows={3}
+                required
                 className="w-full p-3 pl-11 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent resize-none"
                 placeholder={`Hoi ${vendorName}, ik wil graag meer informatie over...`}
               />
@@ -127,10 +195,14 @@ export default function ContactCTA({ vendorName, vendorEmail }) {
 
           <button
             type="submit"
-            className="w-full h-12 flex items-center justify-center gap-2 bg-rose-500 text-white font-semibold rounded-xl touch-manipulation transition-colors hover:bg-rose-600 active:scale-[0.98]"
+            disabled={submitting}
+            className="w-full h-12 flex items-center justify-center gap-2 bg-rose-500 text-white font-semibold rounded-xl touch-manipulation transition-colors hover:bg-rose-600 active:scale-[0.98] disabled:opacity-50"
           >
-            <Send className="w-5 h-5" />
-            Verzenden
+            {submitting ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> Versturen...</>
+            ) : (
+              <><Send className="w-5 h-5" /> Verzenden</>
+            )}
           </button>
         </form>
       )}

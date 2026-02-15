@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://gqlprwursgbgkfkwzkyb.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxbHByd3Vyc2diZ2tma3d6a3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NTcxMzUsImV4cCI6MjA4NjMzMzEzNX0.anon_placeholder';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -20,22 +20,54 @@ export const VENDOR_CATEGORIES = [
   { id: 'decoration', label: 'Decoratie', icon: '🎀' },
 ];
 
+// Map database vendor to frontend format
+function mapVendor(v) {
+  return {
+    id: v.id,
+    name: v.name,
+    slug: v.slug,
+    category: v.category || 'venue',
+    description: v.description || '',
+    location: v.location || v.city || v.address || 'Nederland',
+    city: v.city,
+    address: v.address,
+    rating: v.rating || 0,
+    review_count: v.review_count || 0,
+    price: v.price || 'Prijs op aanvraag',
+    price_numeric: v.price_numeric,
+    premium: v.premium || false,
+    verified: v.verified || false,
+    images: v.images?.length ? v.images : (v.image_url ? [v.image_url] : []),
+    image_url: v.image_url,
+    facilities: v.facilities || [],
+    styles: v.styles || [],
+    faqs: v.faqs || [],
+    capacity: v.capacity,
+    phone: v.phone,
+    email: v.email,
+    website: v.website,
+    published: v.published !== false,
+  };
+}
+
 export async function getVendors({ category, search, location, minPrice, maxPrice, rating }) {
   let query = supabase
     .from('vendors')
     .select('*')
     .eq('published', true);
 
+  // Category filter (using category_id or matching description/name)
   if (category && category !== 'all') {
-    query = query.eq('category', category);
+    // For now, search in description as category_id might not be populated
+    query = query.or(`description.ilike.%${category}%,name.ilike.%${category}%`);
   }
 
   if (search) {
-    query = query.ilike('name', `%${search}%`);
+    query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
   }
 
   if (location) {
-    query = query.ilike('location', `%${location}%`);
+    query = query.or(`city.ilike.%${location}%,address.ilike.%${location}%`);
   }
 
   if (minPrice) {
@@ -50,10 +82,12 @@ export async function getVendors({ category, search, location, minPrice, maxPric
     query = query.gte('rating', rating);
   }
 
-  const { data, error } = await query.order('premium', { ascending: false }).order('rating', { ascending: false });
+  const { data, error } = await query
+    .order('premium', { ascending: false })
+    .order('rating', { ascending: false });
   
   if (error) throw error;
-  return data || [];
+  return (data || []).map(mapVendor);
 }
 
 export async function getVendorBySlug(slug) {
@@ -65,7 +99,7 @@ export async function getVendorBySlug(slug) {
     .single();
   
   if (error) throw error;
-  return data;
+  return data ? mapVendor(data) : null;
 }
 
 export async function getFeaturedVendors(limit = 6) {
@@ -78,24 +112,53 @@ export async function getFeaturedVendors(limit = 6) {
     .limit(limit);
   
   if (error) throw error;
+  return (data || []).map(mapVendor);
+}
+
+export async function getSimilarVendors(vendorId, category, limit = 3) {
+  const { data, error } = await supabase
+    .from('vendors')
+    .select('*')
+    .eq('published', true)
+    .neq('id', vendorId)
+    .or(`description.ilike.%${category}%,name.ilike.%${category}%`)
+    .limit(limit);
+  
+  if (error) throw error;
+  return (data || []).map(mapVendor);
+}
+
+// Reviews API
+export async function getReviews(vendorId) {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('vendor_id', vendorId)
+    .order('created_at', { ascending: false });
+  
+  if (error) throw error;
   return data || [];
 }
 
-export async function getCategoriesWithCounts() {
+export async function addReview(review) {
   const { data, error } = await supabase
-    .from('vendors')
-    .select('category')
-    .eq('published', true);
+    .from('reviews')
+    .insert(review)
+    .select()
+    .single();
   
   if (error) throw error;
+  return data;
+}
+
+// Contact API
+export async function submitContactRequest(contactData) {
+  const { data, error } = await supabase
+    .from('contact_requests')
+    .insert(contactData)
+    .select()
+    .single();
   
-  const counts = {};
-  data?.forEach(vendor => {
-    counts[vendor.category] = (counts[vendor.category] || 0) + 1;
-  });
-  
-  return VENDOR_CATEGORIES.map(cat => ({
-    ...cat,
-    count: counts[cat.id] || 0
-  }));
+  if (error) throw error;
+  return data;
 }

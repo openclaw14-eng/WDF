@@ -1,23 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, MapPin, SlidersHorizontal, X } from 'lucide-react';
+import { Search, MapPin, SlidersHorizontal, X, AlertCircle } from 'lucide-react';
 import VendorCard from '../components/VendorCard';
 import { getVendors, getFeaturedVendors, VENDOR_CATEGORIES } from '../lib/supabase';
-
-const MOCK_VENDORS = [
-  { id: 1, name: 'Beachclub The Sunset', slug: 'beachclub-the-sunset', category: 'venue', location: 'Ameland, NL', rating: 4.8, review_count: 127, price: 'Vanaf €15.660', premium: true, verified: true, images: [], published: true },
-  { id: 2, name: 'Anna Photography', slug: 'anna-photography', category: 'photography', location: 'Amsterdam, NL', rating: 4.9, review_count: 89, price: '€2.500', premium: true, verified: true, images: [], published: true },
-  { id: 3, name: 'Floral Dreams', slug: 'floral-dreams', category: 'flowers', location: 'Utrecht, NL', rating: 4.7, review_count: 54, price: '€1.200', premium: false, verified: true, images: [], published: true },
-  { id: 4, name: 'Grand Hotel Delft', slug: 'grand-hotel-delft', category: 'venue', location: 'Delft, NL', rating: 4.6, review_count: 203, price: 'Vanaf €25.000', premium: true, verified: true, images: [], published: true },
-  { id: 5, name: 'DJ Marcel', slug: 'dj-marcel', category: 'music', location: 'Rotterdam, NL', rating: 4.5, review_count: 67, price: '€800', premium: false, verified: false, images: [], published: true },
-  { id: 6, name: 'Sweet Surrender Cake', slug: 'sweet-surrender-cake', category: 'cake', location: 'Den Haag, NL', rating: 4.9, review_count: 112, price: '€450', premium: true, verified: true, images: [], published: true },
-];
 
 export default function Home() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [vendors, setVendors] = useState([]);
   const [featuredVendors, setFeaturedVendors] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   
   const category = searchParams.get('category') || 'all';
@@ -30,34 +22,26 @@ export default function Home() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
+      setError(null);
+      
       try {
-        if (category === 'all' && !search && !location) {
-          setVendors(MOCK_VENDORS);
-          setFeaturedVendors(MOCK_VENDORS.filter(v => v.premium));
-        } else {
-          const filters = {
-            category: category === 'all' ? null : category,
-            search: search || null,
-            location: location || null,
-            minPrice: minPrice ? parseInt(minPrice) : null,
-            maxPrice: maxPrice ? parseInt(maxPrice) : null,
-            rating: rating ? parseFloat(rating) : null,
-          };
-          const data = await getVendors(filters);
-          setVendors(data.length > 0 ? data : MOCK_VENDORS.filter(v => {
-            if (category !== 'all' && v.category !== category) return false;
-            if (search && !v.name.toLowerCase().includes(search.toLowerCase())) return false;
-            if (location && !v.location.toLowerCase().includes(location.toLowerCase())) return false;
-            return true;
-          }));
-        }
+        const filters = {
+          category: category === 'all' ? null : category,
+          search: search || null,
+          location: location || null,
+          minPrice: minPrice ? parseInt(minPrice) : null,
+          maxPrice: maxPrice ? parseInt(maxPrice) : null,
+          rating: rating ? parseFloat(rating) : null,
+        };
+        
+        const data = await getVendors(filters);
+        setVendors(data);
       } catch (err) {
-        setVendors(MOCK_VENDORS.filter(v => {
-          if (category !== 'all' && v.category !== category) return false;
-          if (search && !v.name.toLowerCase().includes(search.toLowerCase())) return false;
-          return true;
-        }));
+        console.error('Error loading vendors:', err);
+        setError('Er is een fout opgetreden bij het laden van de vendors. Probeer het later opnieuw.');
+        setVendors([]);
       }
+      
       setLoading(false);
     }
     loadData();
@@ -67,9 +51,10 @@ export default function Home() {
     async function loadFeatured() {
       try {
         const data = await getFeaturedVendors(4);
-        setFeaturedVendors(data.length > 0 ? data : MOCK_VENDORS.filter(v => v.premium).slice(0, 4));
-      } catch {
-        setFeaturedVendors(MOCK_VENDORS.filter(v => v.premium).slice(0, 4));
+        setFeaturedVendors(data);
+      } catch (err) {
+        console.error('Error loading featured vendors:', err);
+        setFeaturedVendors([]);
       }
     }
     loadFeatured();
@@ -219,7 +204,14 @@ export default function Home() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {category === 'all' && !search && featuredVendors.length > 0 && (
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        {category === 'all' && !search && !location && featuredVendors.length > 0 && (
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Uitgelichte vendors</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
