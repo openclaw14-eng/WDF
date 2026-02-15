@@ -4,7 +4,7 @@ import VendorDetail from './pages/VendorDetail'
 
 function App() {
   return (
-    <BrowserRouter basename="/weddingfinder">
+    <BrowserRouter basename="/WDF">
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/vendor/:slug" element={<VendorDetail />} />
