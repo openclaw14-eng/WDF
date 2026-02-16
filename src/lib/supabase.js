@@ -54,12 +54,12 @@ export async function getVendors({ category, search, location, minPrice, maxPric
   let query = supabase
     .from('vendors')
     .select('*')
-    .eq('published', true);
+    .eq('published', true)
+    .not('website', 'is', null);
 
-  // Category filter (using category_id or matching description/name)
+  // Category filter using dedicated category column
   if (category && category !== 'all') {
-    // For now, search in description as category_id might not be populated
-    query = query.or(`description.ilike.%${category}%,name.ilike.%${category}%`);
+    query = query.eq('category', category);
   }
 
   if (search) {
@@ -120,8 +120,8 @@ export async function getSimilarVendors(vendorId, category, limit = 3) {
     .from('vendors')
     .select('*')
     .eq('published', true)
+    .eq('category', category)
     .neq('id', vendorId)
-    .or(`description.ilike.%${category}%,name.ilike.%${category}%`)
     .limit(limit);
   
   if (error) throw error;
