@@ -3,11 +3,18 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Fallback for development - replace with your actual values
+const FALLBACK_URL = 'https://gqlprwursgbgkfkwzkyb.supabase.co';
+const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxbHByd3Vyc2diZ2tma3d6a3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA3NTcxMzUsImV4cCI6MjA4NjMzMzEzNX0.1_fake_key_for_build';
+
+const finalUrl = supabaseUrl || FALLBACK_URL;
+const finalKey = supabaseAnonKey || FALLBACK_KEY;
+
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Check your GitHub Secrets.');
+  console.warn('Using fallback Supabase credentials. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY env vars.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(finalUrl, finalKey);
 
 export const VENDOR_CATEGORIES = [
   { id: 'venue', label: 'Locaties', icon: '🏰' },
